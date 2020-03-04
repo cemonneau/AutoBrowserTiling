@@ -1,0 +1,9 @@
+*.iml
+.idea
+node_modules
+**/*.js
+**/*.js.map
+!/website/libs/**/*.js
+!/website/libs/**/*.js.map
+!/extension/background.js
+src/config.json

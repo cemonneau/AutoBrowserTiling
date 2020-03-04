@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Title</title>
+
+	<style>
+		html,body{
+			margin: 0;
+			padding: 0;
+			width: 100%;height: 100%;
+		}
+		*[v-cloak]{display:none!important;}
+
+		#app{
+			height: 100%;
+			position: relative;
+		}
+		#app div.row{
+			width: 100%;
+			position: relative;
+		}
+		#app div.cell{
+			display: inline-block;
+			height:100%;
+			box-sizing: border-box;
+			position:relative;
+		}
+		#app div.cell iframe{
+			border: none;
+			width: 100%;height: 100%;
+		}
+		#app div.cell div.countdown{
+			position: absolute;
+			width:20px;height:20px;
+			top:15px;left:15px;
+		}
+		#app div.cell div.number {
+			color: white;
+			display: inline-block;
+			line-height: 20px;
+			font-size: 15px;
+			text-align: center;
+			width: 100%;
+		}
+		#app div.cell div.countdown.black div.number {color:black}
+		#app div.cell div.countdown svg {
+			position: absolute;
+			top: 0;
+			right: 0;
+			width: 20px;
+			height: 20px;
+			transform: rotateY(-180deg) rotateZ(-90deg);
+		}
+		#app div.cell div.countdown svg circle {
+			stroke-dasharray: 57px;
+			stroke-dashoffset: 0px;
+			stroke-linecap: round;
+			stroke-width: 2px;
+			stroke: white;
+			fill: none;
+		}
+		#app div.cell div.countdown.black svg circle {stroke:black;}
+
+		@keyframes countdown {
+			from {
+				stroke-dashoffset: 0px;
+			}
+			to {
+				stroke-dashoffset: 57px;
+			}
+		}
+
+		/** Options **/
+		.toggleOptions{
+			-webkit-border-bottom-right-radius: 15px;
+			-moz-border-radius-bottomright: 15px;
+			border-bottom-right-radius: 15px;
+			position: absolute;top: 0;left: 0;
+			width: 25px;height: 25px;
+			z-index: 2;
+			color: white;background: gray;
+			font-size: 20px;
+			text-align: center;
+			line-height: 25px;
+		}
+		.option{
+			overflow: hidden;
+			background: gray;
+		}
+		.option:hover{
+			cursor: pointer;
+			background: #b1b1b1;
+		}
+
+
+		.addRow{
+			width:100%;
+			height:20px;
+			position: absolute;
+			bottom: 0;
+			text-align: center;
+		}
+		.removeRow{
+			width:100%;
+			height:20px;
+			position: absolute;
+			top: 0;
+			text-align: center;
+		}
+		.addCell{
+			width:20px;
+			height:100%;
+			position: absolute;
+			right: 0;top:0;
+			text-align: center;
+		}
+		.addCell span{
+			transform: rotate(90deg);
+			position: absolute;top:50%;left:0;right:0;
+		}
+		.editCell{top: 5px;right: 5px;}
+		.removeCell{top: 5px;right: 35px;}
+
+		.popup{
+			position: absolute;left:0;right: 0;top:0;bottom: 0;
+			background: rgba(0,0,0,0.7);
+			z-index: 2;
+		}
+		.popup .container{
+			width: 80%;
+			height: 80%;
+			margin-top:10%;
+			margin-left:10%;
+			background: white;
+		}
+		.popup.errorMessage .container{background: none;color:red;text-align: center}
+
+		.cellEditor{}
+		.circleOption{
+			-webkit-border-radius: 15px;
+			-moz-border-radius: 15px;
+			border-radius: 15px;
+			width: 25px;height: 25px;
+			z-index: 2;
+			position: absolute;
+			color: white;background: gray;
+			font-size: 16px;
+			text-align: center;
+			line-height: 25px;
+		}
+
+		.exportToFile{
+			bottom:5px;
+			right:5px;
+		}
+		.importToFile{
+			bottom:5px;
+			right:35px;
+		}
+
+	</style>
+</head>
+<body>
+
+<div id="app" v-cloak="">
+	<div class="popup errorMessage" v-if="!extensionIsInstalled">
+		<div class="container" >
+			Chrome extension is not installed. Please install it using <a href="../extension.crx" >this file</a>
+		</div>
+	</div>
+
+	<div class="toggleOptions" @click="toggleOptions()">⚙</div>
+	<div v-for="row in display.rows" class="row" :style="getStyleForRow(row)">
+		<div v-for="cell in row.cells" :data-id="cell.id" class="cell" :style="getStyleForCell(row, cell)" v-if="isCellVisible(row,cell)">
+			<div :style="{display:optionsEnabled ? 'block' : 'none'}" class="option editCell circleOption" @click="removeCell(row,cell)">🗑</div>
+			<div :style="{display:optionsEnabled ? 'block' : 'none'}" class="option removeCell circleOption" @click="editCell(cell)">🖉</div>
+			<widgeturl v-if="cell.type === 'URL'" v-bind:component-data="cell.data" v-bind:cell-options="cell.options"></widgeturl>
+			<widgettradingview v-if="cell.type === 'TRADINGVIEW'" v-bind:component-data="cell.data" v-bind:cell-options="cell.options"></widgettradingview>
+			<div :class="'countdown '+(cell.options.blackTimer ? 'black ' : '')" v-if="cell.options.reloadTimer">
+				<div class="number">{{reloadCounterPerId[cell.id]}}</div>
+				<svg>
+					<circle r="9" cx="10" cy="10" :style="'animation: countdown '+cell.options.reloadTimer+'s linear infinite forwards;'"></circle>
+				</svg>
+			</div>
+			<div v-if="optionsEnabled" class="option addCell" @click="addCell(row, cell)"><span>+</span></div>
+		</div>
+		<div v-if="optionsEnabled && row.cells.length === 0" class="option addCell" @click="addCell(row, null)"><span>+</span></div>
+
+		<div v-if="optionsEnabled" class="option removeRow" @click="removeRow(row)">REMOVE ROW</div>
+		<div v-if="optionsEnabled" class="option addRow" @click="addRow(row)">ADD ROW</div>
+	</div>
+	<div v-if="optionsEnabled && display.rows.length === 0" class="option addRow" @click="addRow(null)">ADD ROW</div>
+
+
+	<div v-if="optionsEnabled" class="option exportToFile circleOption" @click="exportToFile()">💾</div>
+	<div v-if="optionsEnabled" class="option importToFile circleOption" @click="importFromFile()">💾</div>
+
+	<div class="cellEditor popup" v-if="editedCell">
+		<div class="container" >
+			<div>
+				<label for="cellEditorType">Type</label>
+				<select v-model="editedCell.type" @change="editedCellTypeChanged(editedCell)" id="cellEditorType" >
+					<option value="URL" >Url</option>
+					<option value="TRADINGVIEW" >TradingView</option>
+					<option value="TWITTER" >Twitter</option>
+				</select>
+			</div>
+
+			<div v-if="editedCell.type === 'URL'">
+				<label for="cellEditorUrl">URL</label>
+				<input type="text" id="cellEditorUrl" v-model="editedCell.data.url" />
+			</div>
+
+			<div v-if="editedCell.type === 'TRADINGVIEW'">
+				<label for="cellEditorTvSymbol">Symbol</label><input type="text" id="cellEditorTvSymbol" v-model="editedCell.data.symbol" /><br/>
+				<label for="cellEditorTvLight">Light</label><input type="checkbox" id="cellEditorTvLight" v-model="editedCell.data.light" /><br/>
+				<label for="cellEditorTvHideTopToolbar">Hide toolbar</label><input type="checkbox" id="cellEditorTvHideTopToolbar" v-model="editedCell.data.hideTopToolbar" /><br/>
+				<label for="cellEditorTvAllowSymbolChange">Allow symbol change</label><input type="checkbox" id="cellEditorTvAllowSymbolChange" v-model="editedCell.data.allowSymbolChange" /><br/>
+				<label for="cellEditorTvHideSideToolbar">Hide side toolbar</label><input type="checkbox" id="cellEditorTvHideSideToolbar" v-model="editedCell.data.hideSideToolbar" /><br/>
+				<label for="cellEditorTvEnablePublish">Enable publishing</label><input type="checkbox" id="cellEditorTvEnablePublish" v-model="editedCell.data.enablePublishing" /><br/>
+				<label for="cellEditorTvInterval">Interval</label>
+				<select v-model="editedCell.data.defaultInterval" id="cellEditorTvInterval">
+					<option value="1" >1m</option>
+					<option value="3" >3m</option>
+					<option value="5" >5m</option>
+					<option value="15" >15m</option>
+					<option value="30" >30m</option>
+					<option value="60" >1h</option>
+					<option value="120" >2h</option>
+					<option value="240" >4h</option>
+					<option value="D" >D</option>
+					<option value="W" >W</option>
+				</select>
+				<br/>
+			</div>
+
+			<div>
+				<label for="cellEditorReloadTimer">Reload every X seconds</label>
+				<input type="text" id="cellEditorReloadTimer" v-model="editedCell.options.reloadTimer" />
+			</div>
+			<div>
+				<label for="cellEditorBlackTimer">Black timer</label>
+				<input type="checkbox" id="cellEditorBlackTimer" v-model="editedCell.options.blackTimer" />
+			</div>
+
+			<div>
+				<label for="cellEditorHideOverflow">Hide overflow</label>
+				<input type="checkbox" id="cellEditorHideOverflow" v-model="editedCell.options.hideOverflow" />
+			</div>
+			<div>
+				<button @click="closeCellEditor()" >Close</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script src="libs/Vuejs/vue.js"></script>
+<script data-main="index" src="libs/fileSaver/fileSaver.js"></script>
+<script data-main="index" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+<script data-main="index" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+<script>
+	// Find Left Boundry of current Window
+	/*function FindLeftWindowBoundry()
+	{
+		// In Internet Explorer window.screenLeft is the window's left boundry
+		if (window.screenLeft)
+		{
+			return window.screenLeft;
+		}
+
+		// In Firefox window.screenX is the window's left boundry
+		if (window.screenX)
+			return window.screenX;
+
+		return 0;
+	}
+
+	window.leftWindowBoundry = FindLeftWindowBoundry;
+
+	function FindLeftScreenBoundry()
+	{
+		// Check if the window is off the primary monitor in a positive axis
+		// X,Y                  X,Y                    S = Screen, W = Window
+		// 0,0  ----------   1280,0  ----------
+		//     |          |         |  ---     |
+		//     |          |         | | W |    |
+		//     |        S |         |  ---   S |
+		//      ----------           ----------
+		if (window.leftWindowBoundry() > window.screen.width)
+		{
+			return window.leftWindowBoundry() - (window.leftWindowBoundry() - window.screen.width);
+		}
+
+		// Check if the window is off the primary monitor in a negative axis
+		// X,Y                  X,Y                    S = Screen, W = Window
+		// 0,0  ----------  -1280,0  ----------
+		//     |          |         |  ---     |
+		//     |          |         | | W |    |
+		//     |        S |         |  ---   S |
+		//      ----------           ----------
+		// This only works in Firefox at the moment due to a bug in Internet Explorer opening new windows into a negative axis
+		// However, you can move opened windows into a negative axis as a workaround
+		if (window.leftWindowBoundry() < 0 && window.leftWindowBoundry() > (window.screen.width * -1))
+		{
+			return (window.screen.width * -1);
+		}
+
+		// If neither of the above, the monitor is on the primary monitor whose's screen X should be 0
+		return 0;
+	}
+
+	let thePage = 'https://google.fr';
+	// let leftPos = FindLeftScreenBoundry();
+	let leftPos = 1900;
+
+	let win = window.open(thePage, 'windowName', 'resizable=0, scrollbars=1, fullscreen=0, height=400, width=400, screenX=' + leftPos + ' , left=' + leftPos + ', toolbar=0, menubar=0, status=0');
+	win.focus();
+	win.moveTo(-1024, 0);
+
+	for(let i = 0; i < 10; ++i){
+		setTimeout(function(){
+			win.moveTo(i*100, 0);
+		}, i*1000);
+	}*/
+
+
+</script>
+
+</body>
+</html>

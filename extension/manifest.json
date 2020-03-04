@@ -1,0 +1,23 @@
+{
+  "name": "Tiling",
+  "description" : "Base Level Extension",
+  "version": "1.0",
+  "manifest_version": 2,
+  "browser_action": {
+  },
+  "background": {
+	"persistent": true,
+	"scripts": ["background.js"]
+  },
+  "permissions": [
+	"activeTab",
+	"storage",
+	"webRequest",
+	"webRequestBlocking",
+	"*://*/"
+  ],
+  "externally_connectable": {
+	"matches": ["*://localhost/*", "*://your.domain.com/*"]
+  },
+  "key": "mjoenlgcmnkonkmnjmlebkojpfcnkjfk"
+}
