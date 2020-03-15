@@ -31,7 +31,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 define(["require", "exports", "./libs/VueAnnotate/VueAnnotate", "./Utils", "./Uuid", "./Widgets/WidgetUrl", "./Widgets/TradingviewWidget"], function (require, exports, VueAnnotate_1, Utils_1, Uuid_1, WidgetUrl_1, TradingviewWidget_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var extensionId = window.location.href.startsWith('http://localhost') ? 'omkoogckomimodfhcfkbpmflamheipfb' : 'mjoenlgcmnkonkmnjmlebkojpfcnkjfk';
+    var extensionId = window.location.href.startsWith('http://localhost') || window.location.href.startsWith('https://cemonneau.github.io/') ? 'omkoogckomimodfhcfkbpmflamheipfb' : 'mjoenlgcmnkonkmnjmlebkojpfcnkjfk';
     function isExtensionInstalled() {
         return new Promise(function (resolve, reject) {
             chrome.runtime.sendMessage(extensionId, { message: "version" }, function (reply) {

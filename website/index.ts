@@ -4,7 +4,7 @@ import {Uuid} from "./Uuid";
 import {DisplayCellUrl, WidgetUrl} from "./Widgets/WidgetUrl";
 import {DisplayCellTradingview, TradingviewWidget} from "./Widgets/TradingviewWidget";
 
-let extensionId = window.location.href.startsWith('http://localhost') ? 'omkoogckomimodfhcfkbpmflamheipfb' : 'mjoenlgcmnkonkmnjmlebkojpfcnkjfk';
+let extensionId = window.location.href.startsWith('http://localhost') || window.location.href.startsWith('https://cemonneau.github.io/') ? 'omkoogckomimodfhcfkbpmflamheipfb' : 'mjoenlgcmnkonkmnjmlebkojpfcnkjfk';
 
 function isExtensionInstalled() : Promise<boolean>{
 	return new Promise<boolean>((resolve, reject)=>{
