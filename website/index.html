@@ -21,10 +21,13 @@
 			position: relative;
 		}
 		#app div.cell{
-			display: inline-block;
-			height:100%;
 			box-sizing: border-box;
-			position:relative;
+			position:absolute;
+		}
+		#app div.cell.fullscreen{
+			left:0 !important;right:0 !important;bottom:0 !important;top:0 !important;
+			width: 100% !important;height: 100% !important;
+			z-index: 9999;
 		}
 		#app div.cell iframe{
 			border: none;
@@ -93,19 +96,18 @@
 			background: #b1b1b1;
 		}
 
-
-		.addRow{
-			width:100%;
-			height:20px;
-			position: absolute;
-			bottom: 0;
-			text-align: center;
-		}
 		.removeRow{
 			width:100%;
 			height:20px;
 			position: absolute;
 			top: 0;
+			text-align: center;
+		}
+		.addRow{
+			width:100%;
+			height:20px;
+			position: absolute;
+			bottom: 0;
 			text-align: center;
 		}
 		.addCell{
@@ -115,12 +117,23 @@
 			right: 0;top:0;
 			text-align: center;
 		}
+		.removeCell{
+			width:20px;
+			height:100%;
+			position: absolute;
+			left: 0;top:0;
+			text-align: center;
+		}
+
 		.addCell span{
 			transform: rotate(90deg);
 			position: absolute;top:50%;left:0;right:0;
 		}
-		.editCell{top: 5px;right: 5px;}
-		.removeCell{top: 5px;right: 35px;}
+		.cellOptions{position:absolute;top: 5px;right: 5px;z-index:5}
+		.cellOptions .option{
+			margin-left:5px;
+			display: inline-block;
+		}
 
 		.popup{
 			position: absolute;left:0;right: 0;top:0;bottom: 0;
@@ -136,27 +149,28 @@
 		}
 		.popup.errorMessage .container{background: none;color:red;text-align: center}
 
-		.cellEditor{}
+		.cellEditor{z-index:100}
 		.circleOption{
 			-webkit-border-radius: 15px;
 			-moz-border-radius: 15px;
 			border-radius: 15px;
 			width: 25px;height: 25px;
 			z-index: 2;
-			position: absolute;
 			color: white;background: gray;
 			font-size: 16px;
 			text-align: center;
 			line-height: 25px;
 		}
 
-		.exportToFile{
+		.globalOptions{
+			position: absolute;
 			bottom:5px;
 			right:5px;
 		}
-		.importToFile{
-			bottom:5px;
-			right:35px;
+
+		.fullScreenWidgetButton{
+			position: absolute;
+			bottom:5px;right:5px;
 		}
 
 	</style>
@@ -171,30 +185,41 @@
 	</div>
 
 	<div class="toggleOptions" @click="toggleOptions()">⚙</div>
-	<div v-for="row in display.rows" class="row" :style="getStyleForRow(row)">
-		<div v-for="cell in row.cells" :data-id="cell.id" class="cell" :style="getStyleForCell(row, cell)" v-if="isCellVisible(row,cell)">
-			<div :style="{display:optionsEnabled ? 'block' : 'none'}" class="option editCell circleOption" @click="removeCell(row,cell)">🗑</div>
-			<div :style="{display:optionsEnabled ? 'block' : 'none'}" class="option removeCell circleOption" @click="editCell(cell)">🖉</div>
-			<widgeturl v-if="cell.type === 'URL'" v-bind:component-data="cell.data" v-bind:cell-options="cell.options"></widgeturl>
-			<widgettradingview v-if="cell.type === 'TRADINGVIEW'" v-bind:component-data="cell.data" v-bind:cell-options="cell.options"></widgettradingview>
-			<div :class="'countdown '+(cell.options.blackTimer ? 'black ' : '')" v-if="cell.options.reloadTimer">
-				<div class="number">{{reloadCounterPerId[cell.id]}}</div>
-				<svg>
-					<circle r="9" cx="10" cy="10" :style="'animation: countdown '+cell.options.reloadTimer+'s linear infinite forwards;'"></circle>
-				</svg>
+	<!--class="row" :style="getStyleForRow(row)"-->
+	<template v-for="row in display.rows"  >
+		<template v-for="cell in row.cells" >
+			<div :data-id="cell.id" class="cell" :class="{fullscreen:currentFullscreenCell==cell}" :style="getStyleForCell(row, cell)" v-if="isCellVisible(row,cell)" >
+				<div class="cellOptions" :style="{display:optionsEnabled ? 'block' : 'none'}">
+					<div class="option circleOption" @click="editCell(cell)">🖉</div>
+					<div class="option circleOption" @click="extendCell(row,cell,{x:1,y:0})">→</div>
+					<div class="option circleOption" @click="extendCell(row,cell,{x:-1,y:0})">←</div>
+					<div class="option circleOption" @click="extendCell(row,cell,{x:0,y:-1})">↑</div>
+					<div class="option circleOption" @click="extendCell(row,cell,{x:0,y:1})">↓</div>
+				</div>
+					<widgeturl v-if="cell.type === 'URL'" v-bind:component-data="cell.data" v-bind:cell-options="cell.options"></widgeturl>
+					<widgettradingview v-if="cell.type === 'TRADINGVIEW'" v-bind:component-data="cell.data" v-bind:cell-options="cell.options"></widgettradingview>
+				<div :class="'countdown '+(cell.options.blackTimer ? 'black ' : '')" v-if="cell.options.reloadTimer">
+					<div class="number">{{reloadCounterPerId[cell.id]}}</div>
+					<svg>
+						<circle r="9" cx="10" cy="10" :style="'animation: countdown '+cell.options.reloadTimer+'s linear infinite forwards;'"></circle>
+					</svg>
+				</div>
+
+				<div v-if="cell.options.fullscreen && !optionsEnabled" class="fullScreenWidgetButton option circleOption" @click="toggleFullscreenCell(row,cell)">⛶</div>
 			</div>
-			<div v-if="optionsEnabled" class="option addCell" @click="addCell(row, cell)"><span>+</span></div>
-		</div>
-		<div v-if="optionsEnabled && row.cells.length === 0" class="option addCell" @click="addCell(row, null)"><span>+</span></div>
+		</template>
+	</template>
 
-		<div v-if="optionsEnabled" class="option removeRow" @click="removeRow(row)">REMOVE ROW</div>
-		<div v-if="optionsEnabled" class="option addRow" @click="addRow(row)">ADD ROW</div>
+	<div v-if="optionsEnabled" class="option removeRow" @click="removeRow()">REMOVE ROW</div>
+	<div v-if="optionsEnabled" class="option addRow" @click="addRow()">ADD ROW</div>
+
+	<div v-if="optionsEnabled" class="option addCell" @click="addCell()"><span>+</span></div>
+	<div v-if="optionsEnabled" class="option removeCell" @click="removeCell()"><span>-</span></div>
+
+	<div class="globalOptions" >
+		<div v-if="optionsEnabled" class="option circleOption" @click="exportToFile()">💾</div>
+		<div v-if="optionsEnabled" class="option circleOption" @click="importFromFile()">💾</div>
 	</div>
-	<div v-if="optionsEnabled && display.rows.length === 0" class="option addRow" @click="addRow(null)">ADD ROW</div>
-
-
-	<div v-if="optionsEnabled" class="option exportToFile circleOption" @click="exportToFile()">💾</div>
-	<div v-if="optionsEnabled" class="option importToFile circleOption" @click="importFromFile()">💾</div>
 
 	<div class="cellEditor popup" v-if="editedCell">
 		<div class="container" >
@@ -247,6 +272,11 @@
 			<div>
 				<label for="cellEditorHideOverflow">Hide overflow</label>
 				<input type="checkbox" id="cellEditorHideOverflow" v-model="editedCell.options.hideOverflow" />
+			</div>
+
+			<div>
+				<label for="cellEditorOptionFullscreen">Fullscreen button</label>
+				<input type="checkbox" id="cellEditorOptionFullscreen" v-model="editedCell.options.fullscreen" />
 			</div>
 			<div>
 				<button @click="closeCellEditor()" >Close</button>

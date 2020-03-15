@@ -27,20 +27,23 @@ function isExtensionInstalled() : Promise<boolean>{
 type DisplayCellOptions = {
 	hideOverflow:boolean,
 	reloadTimer:number,
-	blackTimer:boolean
+	blackTimer:boolean,
+	fullscreen:boolean,
 }
 
 
 enum DisplayCellType{
+	BLANK='BLANK',
 	URL='URL',
 	TRADINGVIEW='TRADINGVIEW',
 	TWITTER='TWITTER',
 }
+export type DisplayCellBlank = {};
 
 type DisplayCell = {
 	id:string,
 	type:DisplayCellType,
-	data:DisplayCellUrl|DisplayCellTradingview,
+	data:DisplayCellBlank|DisplayCellUrl|DisplayCellTradingview,
 	options:DisplayCellOptions,
 }
 
@@ -83,7 +86,7 @@ class App extends Vue{
 			rows:[
 				{
 					cells:[
-						{id:Uuid.v4(),type:DisplayCellType.URL,data:{url:'https://google.fr'}, options:this.getDefaultCellOptions()},
+						this.getDefaultCell()
 					],
 				},
 			],
@@ -94,8 +97,9 @@ class App extends Vue{
 	protected getDefaultCellOptions() : DisplayCellOptions{
 		return {
 			reloadTimer:0,
-			hideOverflow:true,
+			hideOverflow:false,
 			blackTimer:false,
+			fullscreen:false,
 		}
 	}
 
@@ -108,8 +112,23 @@ class App extends Vue{
 		return display;
 	}
 
+	protected getDefaultCell() : DisplayCell{
+		return {id:Uuid.v4(),type:DisplayCellType.URL,data:{url:'https://google.fr'}, options:this.getDefaultCellOptions()};
+	}
+
 	updateDisplay(display : Display){
-		this.display = this.ensureDisplayConsistency(display);
+		this.display = this.ensureDisplayConsistency({...this.getDefaultDisplay(),...display});
+		let maxCells = 0;
+		for(let row of this.display.rows){
+			if(maxCells < row.cells.length){
+				maxCells = row.cells.length;
+			}
+		}
+		for(let row of this.display.rows) {
+			for(let i = 0; i < maxCells-row.cells.length;++i)
+				row.cells.push(this.getDefaultCell());
+		}
+
 		this.updateCounters(true);
 	}
 
@@ -184,7 +203,14 @@ class App extends Vue{
 	}
 
 	getStyleForCell(row : DisplayRow, cell : DisplayCell){
-		return {...{width:(100/row.cells.length)+'%'},...this.getStyledOptionsForCell(cell)};
+		let cellPos = this.getCellPosition(row, cell);
+		let cellMerged = <DisplayMergedCell>this.getCellMerged(cell.id,true);
+		return {...{
+				width:(100/row.cells.length*cellMerged.countHorizontal)+'%',
+				height:(100/this.display.rows.length*cellMerged.countVertical)+'%',
+				left:(cellPos.x/row.cells.length*100)+'%',
+				top:(cellPos.y/this.display.rows.length*100)+'%',
+			},...this.getStyledOptionsForCell(cell)};
 	}
 
 	/**
@@ -193,14 +219,14 @@ class App extends Vue{
 	 * @param cell
 	 */
 	isCellVisible(row : DisplayRow, cell : DisplayCell) : boolean{
-		/*let cellPos = this.getCellPosition(row,cell);
-
-
+		return cell.type !== DisplayCellType.BLANK;
+	}
+	getCellMerged(cellId : string, returnIdentityMerge : boolean = false) : DisplayMergedCell|null{
 		for(let mergedCellSearch of this.display.mergedCells){
-			if(mergedCellSearch.primaryId === cell.id)
-				return true;
-		}*/
-		return true;
+			if(mergedCellSearch.primaryId === cellId)
+				return mergedCellSearch;
+		}
+		return returnIdentityMerge ? {primaryId:cellId, countHorizontal:1, countVertical:1} : null;
 	}
 
 	getCellPosition(row : DisplayRow, cell : DisplayCell) : {x:number, y:number}{
@@ -224,6 +250,14 @@ class App extends Vue{
 		}
 	}
 
+	currentFullscreenCell : DisplayCell|null = null;
+	toggleFullscreenCell(row : DisplayRow|null, cell : DisplayCell|null){
+		if(this.currentFullscreenCell !== null)
+			this.currentFullscreenCell = null;
+		else
+			this.currentFullscreenCell = cell;
+	}
+
 	/*********************************************
 	 * Options management
 	 *********************************************/
@@ -231,57 +265,36 @@ class App extends Vue{
 		this.optionsEnabled = !this.optionsEnabled;
 	}
 
-	addRow(row : DisplayRow|null){
-		let pos : number = -1;
-		for(let i = 0; i < this.display.rows.length;++i){
-			if(this.display.rows[i] === row){
-				pos = i;
-				break;
-			}
+	addRow(){
+		let emptyCells : DisplayCell[] = [];
+		for(let i = 0; i < this.display.rows[0].cells.length;++i){
+			emptyCells.push(this.getDefaultCell());
 		}
-		if(row === null)
-			pos = 0;
 
-		if(pos !== -1){
-			let newRow : DisplayRow = {
-				cells:[],
-			};
-			this.display.rows.splice(pos+1, 0, newRow);
-			this.updateCounters(true);//as it triggers HTML refresh
-		}
+		let newRow : DisplayRow = {
+			cells:emptyCells,
+		};
+		this.display.rows.push(newRow);
+		this.updateCounters(true);//as it triggers HTML refresh
 	}
-	removeRow(row : DisplayRow){
-		for(let i = 0; i < this.display.rows.length;++i){
-			if(this.display.rows[i] === row){
-				this.display.rows.splice(i, 1);
-				this.updateCounters(true);//as it triggers HTML refresh
-				break;
-			}
-		}
+	removeRow(){
+		if(this.display.rows.length > 1)
+			this.display.rows.splice(this.display.rows.length-1,1);
 	}
-	addCell(row : DisplayRow, cell : DisplayCell|null){
-		let pos = -1;
-		for(let i = 0; i < row.cells.length;++i){
-			if(row.cells[i] === cell){
-				pos = i;
-				break;
-			}
+	addCell(){
+		for(let row of this.display.rows) {
+			row.cells.push(this.getDefaultCell());
 		}
-		if(row.cells.length === 0)
-			pos = 0;
-		if(pos !== -1){
-			let newCell : DisplayCell = {
-				id:''+Uuid.v4(),
-				type:DisplayCellType.URL,
-				data:{
-					url:'https://google.com',
-				},
-				options:this.getDefaultCellOptions(),
-			};
-			row.cells.splice(pos+1, 0, newCell);
-			this.updateCounters(true);//as it triggers HTML refresh
-		}
+		this.updateCounters(true);//as it triggers HTML refresh
 	}
+	removeCell(){
+		for(let row of this.display.rows) {
+			if(row.cells.length-1 >= 1)
+				row.cells.splice(row.cells.length-1,1);
+		}
+		this.updateCounters(true);//as it triggers HTML refresh
+	}
+
 	editCell(cell : DisplayCell){
 		this.editedCell = cell;
 	}
@@ -293,15 +306,57 @@ class App extends Vue{
 		if(editedCell.type === DisplayCellType.URL)editedCell.data = WidgetUrl.getDefaultData();
 		else if(editedCell.type === DisplayCellType.TRADINGVIEW) editedCell.data = TradingviewWidget.getDefaultData();
 	}
-
-	removeCell(row : DisplayRow,cell : DisplayCell){
-		for(let i = 0; i < row.cells.length;++i){
-			if(row.cells[i] === cell){
-				row.cells.splice(i, 1);
-				this.updateCounters(true);//as it triggers HTML refresh
+	extendCell(row : DisplayRow, cell : DisplayCell, direction : {x:number, y:number}){
+		let cellPos = this.getCellPosition(row,cell);
+		let mergedCellExist = null;
+		let oldSize = {x:1,y:1};
+		for(let mergedCell of this.display.mergedCells){
+			if(mergedCell.primaryId === cell.id){
+				oldSize = {x:mergedCell.countHorizontal,y:mergedCell.countVertical};
+				mergedCell.countVertical += direction.y;
+				if(mergedCell.countVertical <= 0)mergedCell.countVertical = 1;
+				mergedCell.countHorizontal += direction.x;
+				if(mergedCell.countHorizontal <= 0)mergedCell.countHorizontal = 1;
+				mergedCellExist = mergedCell;
 				break;
 			}
 		}
+		if(mergedCellExist===null){
+			mergedCellExist = {
+				primaryId:cell.id,
+				countHorizontal:Math.max(1+direction.x,1),
+				countVertical:Math.max(1+direction.y,1),
+			};
+			this.display.mergedCells.push(mergedCellExist);
+		}
+
+		// TODO optimize to not trigger too many updates
+		for (let x = cellPos.x; x < cellPos.x + oldSize.x; ++x) {
+			for (let y = cellPos.y; y < cellPos.y + oldSize.y; ++y) {
+				if (x !== cellPos.x || y !== cellPos.y) {
+					this.setDefaultCellAt(x, y);
+				}
+			}
+		}
+		if(mergedCellExist.countVertical === 1 && mergedCellExist.countHorizontal === 1){
+			this.display.mergedCells.splice(this.display.mergedCells.indexOf(mergedCellExist),1);
+		}else {
+			for (let x = cellPos.x; x < cellPos.x + mergedCellExist.countHorizontal; ++x) {
+				for (let y = cellPos.y; y < cellPos.y + mergedCellExist.countVertical; ++y) {
+					if (x !== cellPos.x || y !== cellPos.y) {
+						this.setCellBlankAt(x, y);
+					}
+				}
+			}
+		}
+	}
+	setCellBlankAt(x : number, y : number){
+		this.display.rows[y].cells[x].type = DisplayCellType.BLANK;
+		this.display.rows[y].cells[x].data = {};
+	}
+	setDefaultCellAt(x : number, y : number){
+		this.display.rows[y].cells[x].type = DisplayCellType.URL;
+		this.display.rows[y].cells[x].data = WidgetUrl.getDefaultData();
 	}
 
 	exportToFile(){
