@@ -95,7 +95,7 @@ if (chrome.webRequest.OnHeadersReceivedOptions.EXTRA_HEADERS) {
 
 console.log('register...');
 
-let tilingWebsiteUrls = ['http://localhost'];
+let tilingWebsiteUrls = ['http://localhost', 'https://cemonneau.github.io/AutoBrowserTiling'];
 let allowedTabs = [];
 
 function isUrlAllowedToInitiateSecurityDeactivation(urlToTest){
